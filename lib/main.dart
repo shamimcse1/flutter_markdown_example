@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -17,112 +19,130 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MyWidget(),
+      home: CodeCompilerApp(),
     );
   }
 }
 
-const String _markdownData = """
-## Main
-Formatted Dart code looks really pretty too:
-
-```dart
-void main() {
-  runApp(MaterialApp(
-    home: Scaffold(
-      body: Markdown(data: markdownData),
-    ),
-  ));
-}
-""";
-
-class MyWidget extends StatefulWidget {
-  @override
-  State<StatefulWidget> createState() => _MyWidgetState();
-}
-
-class _MyWidgetState extends State<MyWidget> {
+class CodeCompilerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final controller = ScrollController();
+    return MaterialApp(
+      title: 'Code Compiler',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: CompilerHomePage(),
+    );
+  }
+}
 
+class CompilerHomePage extends StatefulWidget {
+  @override
+  _CompilerHomePageState createState() => _CompilerHomePageState();
+}
+
+class _CompilerHomePageState extends State<CompilerHomePage> {
+  String _code = '';
+  String _language = 'python3';  // default language
+  String _output = '';
+  bool _isLoading = false;
+
+  // Example languages supported by Judge0
+  final List<String> _languages = ['python3', 'javascript', 'cpp', 'java'];
+
+  Future<void> _compileCode() async {
+    setState(() {
+      _isLoading = true;
+      _output = 'Compiling...';
+    });
+
+    const apiUrl = 'https://api.jdoodle.com/v1/execute';  // or another API
+    const clientId = '85be172c15a98ccd1c50a6a3933aca3e'; // replace with your JDoodle client ID
+    const clientSecret = 'c675e215ef7dde155314e16a22f219d2939c84ce057ef9d47ec3a6783ef071b2'; // replace with your JDoodle client secret
+
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'clientId': clientId,
+        'clientSecret': clientSecret,
+        'script': _code,
+        'language': _language,
+        'versionIndex': '0'
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _output = data['output'] ?? 'No output';
+      });
+    } else {
+      setState(() {
+        _output = 'Error: Could not compile code.';
+      });
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Markdown(
-          controller: controller,
-          selectable: true,
-          data: _markdownData,
-          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            code: TextStyle(
-              fontSize: 14.0,
-              fontFamily: 'monospace',
-              color: Colors.black87,
-            ),
-            codeblockPadding: EdgeInsets.all(12.0),
-            codeblockDecoration: BoxDecoration(
-              color: Color(0xFFF5F5F5), // Light gray background
-              borderRadius: BorderRadius.circular(8.0), // Rounded corners
-              border: Border.all(
-                color: Color(0xFFE0E0E0), // Border color
+      appBar: AppBar(
+        title: const Text('Code Compiler'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          scrollDirection: Axis.vertical,
+          children: [
+            TextField(
+              maxLines: 10,
+              onChanged: (value) => _code = value,
+              decoration: const InputDecoration(
+                hintText: 'Enter your code here...',
+                border: OutlineInputBorder(),
               ),
             ),
-            h2: TextStyle(
-              fontSize: 24.0,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+            const SizedBox(height: 10),
+            DropdownButton<String>(
+              value: _language,
+              onChanged: (value) {
+                setState(() {
+                  _language = value!;
+                });
+              },
+              items: _languages.map((lang) {
+                return DropdownMenuItem(
+                  value: lang,
+                  child: Text(lang.toUpperCase()),
+                );
+              }).toList(),
             ),
-            p: TextStyle(
-              fontSize: 16.0,
-              color: Colors.black87,
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _compileCode,
+              child: Text('Compile Code'),
             ),
-          ),
-          builders: {
-            'code': CustomInlineCodeBuilder(), // For inline code
-            'codeBlock': CustomCodeBuilder(), // For code blocks
-          },
-        ),
-      ),
-    );
-  }
-}
-
-
-class CustomCodeBuilder extends MarkdownElementBuilder {
-  @override
-  Widget visitText(md.Text text, TextStyle? preferredStyle) {
-    return Container(
-      padding: EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        color: Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(color: Color(0xFFE0E0E0)),
-      ),
-      child: SelectableText(
-        text.text,
-        style: TextStyle(
-          fontSize: 14.0,
-          fontFamily: 'monospace',
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
-}
-class CustomInlineCodeBuilder extends MarkdownElementBuilder {
-  @override
-  Widget visitText(md.Text text, TextStyle? preferredStyle) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-      decoration: BoxDecoration(
-        color: Color(0xFF2E2E2E), // Dark background
-        borderRadius: BorderRadius.circular(4.0),
-      ),
-      child: SelectableText(
-        text.text,
-        style: TextStyle(
-          fontSize: 14.0,
-          fontFamily: 'monospace',
-          color: Colors.white, // Light text color
+            SizedBox(height: 20),
+            Text(
+              'Output:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(
+                  _output,
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
