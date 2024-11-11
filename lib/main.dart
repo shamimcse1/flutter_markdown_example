@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 
-
 void main() {
   runApp(const MyApp());
 }
@@ -44,49 +43,57 @@ class CompilerHomePage extends StatefulWidget {
 
 class _CompilerHomePageState extends State<CompilerHomePage> {
   String _code = '';
-  String _language = 'python3';  // default language
+  String _language = 'python3'; // default language
   String _output = '';
   bool _isLoading = false;
 
   // Example languages supported by Judge0
   final List<String> _languages = ['python3', 'javascript', 'cpp', 'java'];
 
-  Future<void> _compileCode() async {
-    setState(() {
-      _isLoading = true;
-      _output = 'Compiling...';
-    });
 
-    const apiUrl = 'https://api.jdoodle.com/v1/execute';  // or another API
-    const clientId = '85be172c15a98ccd1c50a6a3933aca3e'; // replace with your JDoodle client ID
-    const clientSecret = 'c675e215ef7dde155314e16a22f219d2939c84ce057ef9d47ec3a6783ef071b2'; // replace with your JDoodle client secret
+  Future<void> executeCode() async {
+    // Define the API URL
+    final url = Uri.parse('https://api.codex.jaagrav.in');
 
-    final response = await http.post(
-      Uri.parse(apiUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'clientId': clientId,
-        'clientSecret': clientSecret,
-        'script': _code,
-        'language': _language,
-        'versionIndex': '0'
-      }),
-    );
+    // Set the headers
+    final headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      setState(() {
-        _output = data['output'] ?? 'No output';
-      });
-    } else {
-      setState(() {
-        _output = 'Error: Could not compile code.';
-      });
+    // Define the body data
+    final body = {
+      'code': '''
+public class Main {
+  public static void main(String[] args) {
+    System.out.print("Enter your value: ");
+    int val = Integer.parseInt("7") + 5;
+    System.out.println(val);
+  }
+}
+''',
+      'language': 'java',
+    };
+
+    try {
+      // Make the POST request
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: body,
+      );
+
+      // Check the response status
+      if (response.statusCode == 200) {
+        // Decode the response body
+        final responseData = jsonDecode(response.body);
+        print('Output: ${responseData['output']}');
+        print('Error: ${responseData['error']}');
+      } else {
+        print('Failed to execute code. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error: $e');
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   @override
@@ -125,7 +132,7 @@ class _CompilerHomePageState extends State<CompilerHomePage> {
             ),
             SizedBox(height: 10),
             ElevatedButton(
-              onPressed: _isLoading ? null : _compileCode,
+              onPressed: _isLoading ? null : executeCode,
               child: Text('Compile Code'),
             ),
             SizedBox(height: 20),
